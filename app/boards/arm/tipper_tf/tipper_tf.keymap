@@ -1,0 +1,42 @@
+/*
+ * Copyright (c) 2021 weteor
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+#include <behaviors.dtsi>
+#include <dt-bindings/zmk/keys.h>
+#include <dt-bindings/zmk/bt.h>
+#include <dt-bindings/zmk/outputs.h>
+
+#define BAS_L 0
+#define SYM_L 1
+#define NAV_L 2
+#define NUM_L 3
+#define CFG_L 4
+#define BLE_L 5
+
+// repeating space/backspace
+//&lt { quick_tap_ms = <200>; };
+
+/ {
+    keymap {
+        compatible = "zmk,keymap";
+
+            default_layer {
+            label = "Base";
+// -------------------------------     -------------------------------
+// |  Q  |  W  |  F  |  P  |  G  |  -  |  J  |  L  |  U  |  Y  |  '  | 
+// |A sft|R win|S alt|T ctl|  D  | MUT |  H  |N ctl|E alt|I win|O sft| 
+// |  Z  |  X  |  C  |  V  |  B  |  -  |  K  |  M  |  ,  |  .  |  ;  | 
+// ------|    Spc    |    Nav    |     |    Sym    |    Ent    |------
+//       -------------------------     -------------------------
+            bindings = <
+                &kp Q       &kp W       &kp F       &kp P     
+                >;
+            };
+    
+        };
+    };
+
+

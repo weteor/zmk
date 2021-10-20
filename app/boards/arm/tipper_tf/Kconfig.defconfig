@@ -34,7 +34,7 @@ if ZMK_DISPLAY
 config SPI
         default y
 
-config SSD16XX
+config JD79653
         default y
 
 

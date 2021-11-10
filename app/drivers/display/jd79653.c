@@ -70,6 +70,7 @@ struct jd79653_data {
 static uint8_t jd79653_pwr[] = DT_INST_PROP(0, pwr);
 
 static uint8_t old_buffer[JD79653_BUFFER_SIZE];
+static uint8_t partial_buffer[JD79653_BUFFER_SIZE];
 static bool blanking_on = true;
 
 static inline int jd79653_write_cmd(struct jd79653_data *driver,
@@ -110,6 +111,7 @@ static inline void jd79653_busy_wait(struct jd79653_data *driver)
 
 static int jd79653_update_display(const struct device *dev)
 {
+    return 0;
 	struct jd79653_data *driver = dev->data;
 
 	LOG_DBG("Trigger update sequence");
@@ -146,10 +148,11 @@ static int jd79653_blanking_on(const struct device *dev)
 	return 0;
 }
 
-static int jd79653_write(const struct device *dev, const uint16_t x, const uint16_t y,
+static int jd79653_write_(const struct device *dev, const uint16_t x, const uint16_t y,
 			const struct display_buffer_descriptor *desc,
 			const void *buf)
 {
+    return 0;
 	struct jd79653_data *driver = dev->data;
 	uint16_t x_end_idx = x + desc->width - 1;
 	uint16_t y_end_idx = y + desc->height - 1;
@@ -203,17 +206,220 @@ static int jd79653_write(const struct device *dev, const uint16_t x, const uint1
 
     memcpy(old_buffer, (uint8_t *)buf,  JD79653_BUFFER_SIZE);
 
-	/* Update partial window and disable Partial Mode */
-	if (blanking_on == false) {
-		if (jd79653_update_display(dev)) {
-			return -EIO;
-		}
-	}
+	/* /1* Update partial window and disable Partial Mode *1/ */
+	/* if (blanking_on == false) { */
+	/* 	if (jd79653_update_display(dev)) { */
+	/* 		return -EIO; */
+	/* 	} */
+	/* } */
 
 	if (jd79653_write_cmd(driver, JD79653_CMD_PTOUT, NULL, 0)) {
 		return -EIO;
 	}
 
+    ptl[0] = JD79653_AUTO_PON_DRF_POF;
+    if (jd79653_write_cmd(driver, JD79653_CMD_AUTO, ptl, 1)) {
+        return -EIO;
+    }
+
+	return 0;
+}
+
+static int jd79653_write(const struct device *dev, const uint16_t x, const uint16_t y,
+			const struct display_buffer_descriptor *desc,
+			const void *buf)
+{
+
+    /* return 0; */
+	struct jd79653_data *driver = dev->data;
+	uint16_t x_end_idx = x + desc->width - 1;
+	uint16_t y_end_idx = y + desc->height - 1;
+	uint8_t ptl[JD79653_PTL_REG_LENGTH] = {0};
+	size_t buf_len;
+    uint8_t i;
+    uint8_t* fb = (uint8_t*) buf;
+
+	LOG_DBG("x %u, y %u, height %u, width %u, pitch %u",
+		x, y, desc->height, desc->width, desc->pitch);
+
+	buf_len = MIN(desc->buf_size,
+		      desc->height * desc->width / JD79653_PIXELS_PER_BYTE);
+	__ASSERT(desc->width <= desc->pitch, "Pitch is smaller then width");
+	__ASSERT(buf != NULL, "Buffer is not available");
+	__ASSERT(buf_len != 0U, "Buffer of length zero");
+	__ASSERT(!(desc->width % JD79653_PIXELS_PER_BYTE),
+		 "Buffer width not multiple of %d", JD79653_PIXELS_PER_BYTE);
+
+	if ((y_end_idx > (EPD_PANEL_HEIGHT - 1)) ||
+	    (x_end_idx > (EPD_PANEL_WIDTH - 1))) {
+		LOG_ERR("Position out of bounds");
+		return -EINVAL;
+	}
+    
+    /* Setup Partial Window and enable Partial Mode */
+	ptl[JD79653_PTL_HRST_IDX]  = x;
+	ptl[JD79653_PTL_HRED_IDX]  = x_end_idx;
+    ptl[JD79653_PTL_HRESERVED] = 0x00;
+	ptl[JD79653_PTL_VRST_IDX]  = y;
+    ptl[JD79653_PTL_VRESERVED] = 0x00;
+	ptl[JD79653_PTL_VRED_IDX]  = y_end_idx;
+    
+	ptl[sizeof(ptl) - 1] = JD79653_PTL_PT_SCAN;
+
+    /* prepare partial buffer for transfer, copy updated data to old data buffer */
+    for(i=0; i < desc->height;++i)
+    {
+        memcpy(&partial_buffer[i*desc->pitch/JD79653_PIXELS_PER_BYTE],
+               &old_buffer[(x+(y+i)*EPD_PANEL_WIDTH)/JD79653_PIXELS_PER_BYTE],
+                desc->width / JD79653_PIXELS_PER_BYTE);
+    }
+
+	jd79653_busy_wait(driver);
+    if (jd79653_write_cmd(driver, JD79653_CMD_PTIN, NULL, 0)) {
+        return -EIO;
+    }
+
+    if (jd79653_write_cmd(driver, JD79653_CMD_PTL, ptl, sizeof(ptl))) {
+        return -EIO;
+    }
+
+    if (jd79653_write_cmd(driver, JD79653_CMD_DTM1, old_buffer, JD79653_BUFFER_SIZE)) {
+        return -EIO;
+    }
+
+    for(i=0; i < desc->height;++i)
+    {
+        memcpy(&old_buffer[(x+(y+i)*EPD_PANEL_WIDTH)/JD79653_PIXELS_PER_BYTE], &fb[(i*desc->pitch)/JD79653_PIXELS_PER_BYTE], desc->width / JD79653_PIXELS_PER_BYTE);
+    }
+
+    if (jd79653_write_cmd(driver, JD79653_CMD_DTM2, fb, buf_len)) {
+        return -EIO;
+    }
+    
+    ptl[0] = JD79653_AUTO_PON_DRF_POF;
+    if (jd79653_write_cmd(driver, JD79653_CMD_AUTO, ptl, 1)) {
+        return -EIO;
+    }
+
+
+	/* Update partial window and disable Partial Mode */
+	/* if (blanking_on == false) { */
+	/* 	if (jd79653_update_display(dev)) { */
+	/* 		return -EIO; */
+	/* 	} */
+	/* } */
+
+    if (jd79653_write_cmd(driver, JD79653_CMD_PTOUT, NULL, 0)) {
+        return -EIO;
+    }
+    
+	return 0;
+}
+
+static int jd79653_write___(const struct device *dev, const uint16_t x, const uint16_t y,
+			const struct display_buffer_descriptor *desc,
+			const void *buf)
+{
+
+    /* return 0; */
+	struct jd79653_data *driver = dev->data;
+	uint16_t x_end_idx = x + desc->width - 1;
+	uint16_t y_end_idx = y + desc->height - 1;
+	uint8_t ptl[JD79653_PTL_REG_LENGTH] = {0};
+	size_t buf_len;
+    uint8_t i;
+    uint8_t* fb = (uint8_t*) buf;
+
+	LOG_DBG("x %u, y %u, height %u, width %u, pitch %u",
+		x, y, desc->height, desc->width, desc->pitch);
+
+	buf_len = MIN(desc->buf_size,
+		      desc->height * desc->width / JD79653_PIXELS_PER_BYTE);
+	__ASSERT(desc->width <= desc->pitch, "Pitch is smaller then width");
+	__ASSERT(buf != NULL, "Buffer is not available");
+	__ASSERT(buf_len != 0U, "Buffer of length zero");
+	__ASSERT(!(desc->width % JD79653_PIXELS_PER_BYTE),
+		 "Buffer width not multiple of %d", JD79653_PIXELS_PER_BYTE);
+
+	if ((y_end_idx > (EPD_PANEL_HEIGHT - 1)) ||
+	    (x_end_idx > (EPD_PANEL_WIDTH - 1))) {
+		LOG_ERR("Position out of bounds");
+		return -EINVAL;
+	}
+    
+    /* Setup Partial Window and enable Partial Mode */
+	ptl[JD79653_PTL_HRST_IDX]  = x;
+	ptl[JD79653_PTL_HRED_IDX]  = x_end_idx;
+    ptl[JD79653_PTL_HRESERVED] = 0x00;
+	ptl[JD79653_PTL_VRST_IDX]  = y;
+    ptl[JD79653_PTL_VRESERVED] = 0x00;
+	ptl[JD79653_PTL_VRED_IDX]  = y_end_idx;
+    
+	ptl[sizeof(ptl) - 1] = JD79653_PTL_PT_SCAN;
+	LOG_HEXDUMP_DBG(ptl, sizeof(ptl), "ptl");
+
+	jd79653_busy_wait(driver);
+    /* prepare partial buffer for transfer, copy updated data to old data buffer */
+    for(i=0; i < desc->height;++i)
+    {
+        memcpy(&partial_buffer[i*desc->pitch/JD79653_PIXELS_PER_BYTE],
+               &old_buffer[(x+(y+i)*EPD_PANEL_WIDTH)/JD79653_PIXELS_PER_BYTE],
+                desc->width / JD79653_PIXELS_PER_BYTE);
+
+        memcpy(&old_buffer[(x+(y+i)*EPD_PANEL_WIDTH)/JD79653_PIXELS_PER_BYTE], 
+               &fb[(i*desc->pitch)/JD79653_PIXELS_PER_BYTE],
+               desc->width / JD79653_PIXELS_PER_BYTE);
+    }
+
+	if (jd79653_write_cmd(driver, JD79653_CMD_PTIN, NULL, 0)) {
+		return -EIO;
+	}
+
+	if (jd79653_write_cmd(driver, JD79653_CMD_PTL, ptl, sizeof(ptl))) {
+		return -EIO;
+	}
+
+    /* if (jd79653_write_cmd(driver, JD79653_CMD_DTM1, partial_buffer, buf_len)) { */
+    /*     return -EIO; */
+    /* } */
+
+    /* if (jd79653_write_cmd(driver, JD79653_CMD_DTM2, fb, buf_len)) { */
+    /*     return -EIO; */
+    /* } */
+
+    /* ptl[0] = JD79653_AUTO_PON_DRF_POF; */
+    /* if (jd79653_write_cmd(driver, JD79653_CMD_AUTO, ptl, 1)) { */
+    /*     return -EIO; */
+    /* } */
+
+	/* if (jd79653_write_cmd(driver, JD79653_CMD_PON, NULL, 0)) { */
+	/* 	return -EIO; */
+	/* } */
+    
+    /* if (blanking_on == false) { */
+		/* if (jd79653_update_display(dev)) { */
+			/* return -EIO; */
+		/* } */
+	/* } */
+
+    if (jd79653_write_cmd(driver, JD79653_CMD_PTOUT, NULL, 0)) {
+		return -EIO;
+	}
+    
+    /* if (jd79653_write_cmd(driver, JD79653_CMD_POF, NULL, 0)) { */
+		/* return -EIO; */
+	/* } */
+	
+    /* jd79653_busy_wait(driver); */
+
+	/* Update partial window and disable Partial Mode */
+	/* if (blanking_on == false) { */
+	/* 	if (jd79653_update_display(dev)) { */
+	/* 		return -EIO; */
+	/* 	} */
+	/* } */
+
+    
 	return 0;
 }
 
@@ -274,120 +480,158 @@ static int jd79653_set_pixel_format(const struct device *dev,
 }
 
 static int jd79653_clear_and_write_buffer(const struct device *dev,
-					 uint8_t pattern, bool update)
+uint8_t pattern, bool update)
 {
-	struct display_buffer_descriptor desc = {
-		.buf_size = JD79653_NUMOF_PAGES,
-		.width = EPD_PANEL_WIDTH,
-		.height = 1,
-		.pitch = EPD_PANEL_WIDTH,
-	};
-	uint8_t *line;
+    struct jd79653_data *driver = dev->data;
+    
 
-	line = k_malloc(JD79653_NUMOF_PAGES);
-	if (line == NULL) {
-		return -ENOMEM;
-	}
+    memset(old_buffer, ~pattern, JD79653_BUFFER_SIZE);
+    if (jd79653_write_cmd(driver, JD79653_CMD_DTM1, old_buffer, JD79653_BUFFER_SIZE)) {
+         
+        return -EIO;
+    }
+    memset(old_buffer, pattern, JD79653_BUFFER_SIZE);
+    if (jd79653_write_cmd(driver, JD79653_CMD_DTM2, old_buffer, JD79653_BUFFER_SIZE)) {
+         
+        return -EIO;
+    }
 
-	memset(line, pattern, JD79653_NUMOF_PAGES);
-	for (int i = 0; i < EPD_PANEL_HEIGHT; i++) {
-		jd79653_write(dev, 0, i, &desc, line);
-	}
+    /* struct display_buffer_descriptor desc = { */
+    /*     .buf_size = JD79653_NUMOF_PAGES, */
+    /*     .width = EPD_PANEL_WIDTH, */
+    /*     .height = 1, */
+    /*     .pitch = EPD_PANEL_WIDTH, */
+    /* }; */
+    /* uint8_t *line; */
 
-	k_free(line);
+    /* line = k_malloc(JD79653_NUMOF_PAGES); */
+    /* if (line == NULL) { */
+    /*     return -ENOMEM; */
+    /* } */
 
-	if (update == true) {
-		if (jd79653_update_display(dev)) {
-			return -EIO;
-		}
-	}
+    /* memset(line, pattern, JD79653_NUMOF_PAGES); */
+    /* for (int i = 0; i < EPD_PANEL_HEIGHT; i++) { */
+    /*     jd79653_write(dev, 0, i, &desc, line); */
+    /* } */
 
-	return 0;
+    /* k_free(line); */
+
+    if (update == true) {
+        if (jd79653_update_display(dev)) {
+            return -EIO;
+        }
+    }
+
+    return 0;
 }
 
 static int jd79653_controller_init(const struct device *dev)
 {
-	struct jd79653_data *driver = dev->data;
-	uint8_t tmp[JD79653_PTL_REG_LENGTH];
+    struct jd79653_data *driver = dev->data;
+    uint8_t tmp[JD79653_PTL_REG_LENGTH];
 
-	gpio_pin_set(driver->reset, JD79653_RESET_PIN, 1);
-	k_sleep(K_MSEC(JD79653_RESET_DELAY));
-	gpio_pin_set(driver->reset, JD79653_RESET_PIN, 0);
-	k_sleep(K_MSEC(JD79653_RESET_DELAY));
-	jd79653_busy_wait(driver);
+    gpio_pin_set(driver->reset, JD79653_RESET_PIN, 1);
+    k_sleep(K_MSEC(JD79653_RESET_DELAY));
+    gpio_pin_set(driver->reset, JD79653_RESET_PIN, 0);
+    k_sleep(K_MSEC(JD79653_RESET_DELAY));
+    jd79653_busy_wait(driver);
 
-	LOG_DBG("Initialize JD79653 controller");
+    LOG_DBG("Initialize JD79653 controller");
     /* set panel settings - 200x200 res, booster on, BW mode, temp sense */
     tmp[0] = 0xdf;
     tmp[1] = 0x0e;
-	if (jd79653_write_cmd(driver, JD79653_CMD_PSR, tmp,
-			     2)) {
-		return -EIO;
-	}
-    
+    if (jd79653_write_cmd(driver, JD79653_CMD_PSR, tmp,
+    2)) {
+        return -EIO;
+    }
+
     /* power settings */
-	if (jd79653_write_cmd(driver, JD79653_CMD_PWR, jd79653_pwr,
-			     sizeof(jd79653_pwr))) {
-		return -EIO;
-	}
-    
+    if (jd79653_write_cmd(driver, JD79653_CMD_PWR, jd79653_pwr,
+    sizeof(jd79653_pwr))) {
+        return -EIO;
+    }
+
     /* some fiti internal code, not in the datasheet. Good Display
-     * does use this in init and some other drivers also, so here it is */
+    * does use this in init and some other drivers also, so here it is */
     tmp[0] = 0x55;
-	if (jd79653_write_cmd(driver, JD79653_CMD_FITIINT_4D,tmp, 1)) {
-		return -EIO;
-	}
+    if (jd79653_write_cmd(driver, JD79653_CMD_FITIINT_4D,tmp, 1)) {
+        return -EIO;
+    }
 
     tmp[0] = 0x0f;
-	if (jd79653_write_cmd(driver, JD79653_CMD_FITIINT_AA,tmp, 1)) {
-		return -EIO;
-	}
-    
+    if (jd79653_write_cmd(driver, JD79653_CMD_FITIINT_AA,tmp, 1)) {
+        return -EIO;
+    }
+
     tmp[0] = 0x02;
-	if (jd79653_write_cmd(driver, JD79653_CMD_FITIINT_E9,tmp, 1)) {
-		return -EIO;
-	}
+    if (jd79653_write_cmd(driver, JD79653_CMD_FITIINT_E9,tmp, 1)) {
+        return -EIO;
+    }
 
     tmp[0] = 0x11;
-	if (jd79653_write_cmd(driver, JD79653_CMD_FITIINT_B6,tmp, 1)) {
-		return -EIO;
-	}
+    if (jd79653_write_cmd(driver, JD79653_CMD_FITIINT_B6,tmp, 1)) {
+        return -EIO;
+    }
 
     tmp[0] = 0x0a;
-	if (jd79653_write_cmd(driver, JD79653_CMD_FITIINT_F3,tmp, 1)) {
-		return -EIO;
-	}
-    
+    if (jd79653_write_cmd(driver, JD79653_CMD_FITIINT_F3,tmp, 1)) {
+        return -EIO;
+    }
+
     /* resolution settings */
     tmp[JD79653_TRES_HRES_IDX] = EPD_PANEL_WIDTH;
     tmp[1] = 0x00;
     tmp[JD79653_TRES_VRES_IDX] = EPD_PANEL_HEIGHT;
-	if (jd79653_write_cmd(driver, JD79653_CMD_FITIINT_F3,
-                tmp, JD79653_TRES_REG_LENGTH)) {
-		return -EIO;
-	}
+    if (jd79653_write_cmd(driver, JD79653_CMD_TRES,
+    tmp, JD79653_TRES_REG_LENGTH)) {
+        return -EIO;
+    }
 
     /* tcon settings */
-	tmp[0] = DT_INST_PROP(0, tcon);
-	if (jd79653_write_cmd(driver, JD79653_CMD_TCON, tmp, 1)) {
-		return -EIO;
-	}
+    tmp[0] = DT_INST_PROP(0, tcon);
+    if (jd79653_write_cmd(driver, JD79653_CMD_TCON, tmp, 1)) {
+        return -EIO;
+    }
 
     /* vcom DC settings */
-	tmp[0] = DT_INST_PROP(0, vcom_dc);
-	if (jd79653_write_cmd(driver, JD79653_CMD_VDCS, tmp, 1)) {
-		return -EIO;
-	}
+    tmp[0] = DT_INST_PROP(0, vcom_dc);
+    if (jd79653_write_cmd(driver, JD79653_CMD_VDCS, tmp, 1)) {
+        return -EIO;
+    }
+    
+    tmp[0] = 0x97;
+    if (jd79653_write_cmd(driver, JD79653_CMD_CDI, tmp, 1)) {
+        return -EIO;
+    }
 
-	/* Enable Auto Sequence */
-	tmp[0] = JD79653_AUTO_PON_DRF_POF;
-	if (jd79653_write_cmd(driver, JD79653_CMD_AUTO, tmp, 1)) {
-		return -EIO;
-	}
+    tmp[0] = 0x00;
+    if (jd79653_write_cmd(driver, JD79653_CMD_PWS, tmp, 1)) {
+        return -EIO;
+    }
 
-	if (jd79653_clear_and_write_buffer(dev, 0xff, false)) {
+    if (jd79653_clear_and_write_buffer(dev, 0x00, false)) {
 		return -1;
 	}
+
+    /* Enable Auto Sequence */
+    tmp[0] = JD79653_AUTO_PON_DRF_POF;
+    if (jd79653_write_cmd(driver, JD79653_CMD_AUTO, tmp, 1)) {
+        return -EIO;
+    }
+
+    /* /1* /2* power on *2/ *1/ */
+    /* if (jd79653_write_cmd(driver, JD79653_CMD_PON, NULL, 0)) { */
+         
+    /*     return -EIO; */
+    /* } */
+    /* k_sleep(K_MSEC(JD79653_PON_DELAY)); */
+
+
+    /* if (jd79653_write_cmd(driver, JD79653_CMD_DRF, NULL, 0)) { */
+         
+    /*     return -EIO; */
+    /* } */
+
 
 	return 0;
 }

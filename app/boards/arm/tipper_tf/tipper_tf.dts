@@ -87,9 +87,9 @@
         width  = <200>;
         dc-gpios = <&gpio0 6 GPIO_ACTIVE_LOW>;
         reset-gpios = <&gpio0 24 GPIO_ACTIVE_LOW>;
-        busy-gpios = <&gpio1 13 GPIO_ACTIVE_HIGH>;
-        pwr = [03 06 29 29];
-        /* pwr = [03 0a 39 39 06]; //std Values*/
+        busy-gpios = <&gpio1 13 GPIO_ACTIVE_LOW>;
+        /* pwr = [03 06 29 29]; */
+        pwr = [03 0a 39 39 06]; //std Values
         tcon = <0x22>;
         cdi  = <0x07>;
         vcom-dc = <0x00>;

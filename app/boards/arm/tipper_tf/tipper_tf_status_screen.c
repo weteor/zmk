@@ -15,13 +15,13 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 LV_IMG_DECLARE(tipperlogo);
 
-/* #if IS_ENABLED(CONFIG_ZMK_WIDGET_BATTERY_STATUS) */
-/* static struct zmk_widget_battery_status battery_status_widget; */
-/* #endif */
+#if IS_ENABLED(CONFIG_ZMK_WIDGET_BATTERY_STATUS)
+static struct zmk_widget_battery_status battery_status_widget;
+#endif
 
-/* #if IS_ENABLED(CONFIG_ZMK_WIDGET_OUTPUT_STATUS) */
-/* static struct zmk_widget_output_status output_status_widget; */
-/* #endif */
+#if IS_ENABLED(CONFIG_ZMK_WIDGET_OUTPUT_STATUS)
+static struct zmk_widget_output_status output_status_widget;
+#endif
 
 /* #if IS_ENABLED(CONFIG_ZMK_WIDGET_LAYER_STATUS) */
 /* static struct zmk_widget_layer_status layer_status_widget; */
@@ -49,17 +49,17 @@ lv_obj_t *zmk_display_status_screen() {
     screen = lv_obj_create(NULL, NULL);
     /* lv_obj_add_style(screen, LV_LABEL_PART_MAIN, &global_style); */
 
-/* #if IS_ENABLED(CONFIG_ZMK_WIDGET_BATTERY_STATUS) */
-/*     zmk_widget_battery_status_init(&battery_status_widget, screen); */
-/*     lv_obj_align(zmk_widget_battery_status_obj(&battery_status_widget), NULL, LV_ALIGN_IN_TOP_RIGHT, */
-/*                  0, 0); */
-/* #endif */
+#if IS_ENABLED(CONFIG_ZMK_WIDGET_BATTERY_STATUS)
+    zmk_widget_battery_status_init(&battery_status_widget, screen);
+    lv_obj_align(zmk_widget_battery_status_obj(&battery_status_widget), NULL, LV_ALIGN_IN_TOP_LEFT,
+                 0, 0);
+#endif
 
-/* #if IS_ENABLED(CONFIG_ZMK_WIDGET_OUTPUT_STATUS) */
-/*     zmk_widget_output_status_init(&output_status_widget, screen); */
-/*     lv_obj_align(zmk_widget_output_status_obj(&output_status_widget), NULL, LV_ALIGN_IN_TOP_LEFT, 0, */
-/*                  0); */
-/* #endif */
+#if IS_ENABLED(CONFIG_ZMK_WIDGET_OUTPUT_STATUS)
+    zmk_widget_output_status_init(&output_status_widget, screen);
+    lv_obj_align(zmk_widget_output_status_obj(&output_status_widget), NULL, LV_ALIGN_IN_BOTTOM_RIGHT, 0,
+                 0);
+#endif
 
     /* center_frame = lv_cont_create(screen, NULL); */
     /* lv_obj_set_auto_realign(center_frame, true); */
@@ -93,7 +93,7 @@ lv_obj_t *zmk_display_status_screen() {
     lv_obj_t * tipperlogo_icon;
     tipperlogo_icon = lv_img_create(screen, NULL);
     lv_img_set_src(tipperlogo_icon, &tipperlogo);
-    lv_obj_align(tipperlogo_icon, NULL, LV_ALIGN_CENTER, 0,0);
+    lv_obj_align(tipperlogo_icon, NULL, LV_ALIGN_IN_TOP_MID, 0,0);
     
     return screen;
 }

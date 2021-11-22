@@ -70,6 +70,9 @@ endchoice
 
 endif #ZMK_DISPLAY
 
+menuconfig CUSTOM_WIDGET_BATTERY_STATUS
+	bool "custom battery status widget"
+
 
 config BT_CTLR
         default BT

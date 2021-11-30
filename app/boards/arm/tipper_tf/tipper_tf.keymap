@@ -115,6 +115,12 @@
             bindings = <&mo BLE_L>;
             };
 
+        combo_capsWord {
+            timeout-ms = <50>;
+            key-positions = <22 27>;
+            bindings = <&caps_word>;
+            };
+
     };
 
     behaviors {

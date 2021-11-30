@@ -99,6 +99,32 @@
 	status = "okay";
 };
 
+&spi0 {
+    compatible = "nordic,nrf-spim";
+    status = "okay";
+    sck-pin = <10>;
+    mosi-pin = <9>; 
+    miso-pin = <26>; 
+    cs-gpios = <&gpio0 15 GPIO_ACTIVE_LOW>;
+
+    jd79653@0 {
+        compatible = "gooddisplay,jd79653";
+        label = "DISPLAY";
+        spi-max-frequency = <4000000>;
+        reg = <0>;
+        height = <200>;
+        width  = <200>;
+        dc-gpios = <&gpio0 6 GPIO_ACTIVE_LOW>;
+        reset-gpios = <&gpio0 24 GPIO_ACTIVE_LOW>;
+        busy-gpios = <&gpio1 13 GPIO_ACTIVE_LOW>;
+        /* pwr = [03 06 29 29]; */
+        pwr = [03 0a 39 39 06]; //std Values
+        tcon = <0x22>;
+        cdi  = <0x07>;
+        vcom-dc = <0x00>;
+    };
+};
+
 &usbd {
 	status = "okay";
 };

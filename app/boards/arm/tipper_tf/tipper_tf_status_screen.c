@@ -16,7 +16,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 LV_IMG_DECLARE(tipperlogo);
 
 #if IS_ENABLED(CONFIG_CUSTOM_WIDGET_BATTERY_STATUS)
-static struct zmk_widget_battery_status battery_status_widget;
+/* static struct zmk_widget_battery_status battery_status_widget; */
 #endif
 
 //#if IS_ENABLED(CONFIG_ZMK_WIDGET_OUTPUT_STATUS)
@@ -50,9 +50,9 @@ lv_obj_t *zmk_display_status_screen() {
     /* lv_obj_add_style(screen, LV_LABEL_PART_MAIN, &global_style); */
 
 #if IS_ENABLED(CONFIG_CUSTOM_WIDGET_BATTERY_STATUS)
-    zmk_widget_battery_status_init(&battery_status_widget, screen);
-    lv_obj_align(zmk_widget_battery_status_obj(&battery_status_widget), NULL, LV_ALIGN_IN_BOTTOM_LEFT,
-                 20, 20);
+    /* zmk_widget_battery_status_init(&battery_status_widget, screen); */
+    /* lv_obj_align(zmk_widget_battery_status_obj(&battery_status_widget), NULL, LV_ALIGN_IN_BOTTOM_LEFT, */
+                 /* 20, 20); */
 #endif
 
 //#if IS_ENABLED(CONFIG_ZMK_WIDGET_OUTPUT_STATUS)

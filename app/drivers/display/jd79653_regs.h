@@ -100,7 +100,7 @@
 #define JD79653_PTL_PT_SCAN			BIT(0)
 
 /* Time constants in ms */
-#define JD79653_RESET_DELAY			10U
+#define JD79653_RESET_DELAY			100U
 #define JD79653_PON_DELAY			100U
 #define JD79653_BUSY_DELAY			1U
 

@@ -88,6 +88,7 @@
     sck-pin = <9>;
     mosi-pin = <10>; 
     miso-pin = <5>; 
+    /* cs-gpios = <&gpio0 4 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>; */
     cs-gpios = <&gpio0 4 GPIO_ACTIVE_LOW>;
 
     jd79653@0 {
@@ -99,7 +100,8 @@
         width  = <200>;
         dc-gpios = <&gpio0 6 GPIO_ACTIVE_LOW>;
         reset-gpios = <&gpio1 13 GPIO_ACTIVE_LOW>;
-        busy-gpios = <&gpio1 15 GPIO_ACTIVE_LOW>;
+        /* busy-gpios = <&gpio1 15 GPIO_ACTIVE_LOW>; */
+        busy-gpios = <&gpio1 15 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
         /* pwr = [03 06 29 29]; */
         pwr = [03 0a 39 39 06]; //std Values
         tcon = <0x22>;

@@ -712,7 +712,7 @@ static struct display_driver_api jd79653_driver_api = {
 };
 
 
-DEVICE_DT_INST_DEFINE(0, jd79653_init, device_pm_control_nop,
+DEVICE_DT_INST_DEFINE(0, jd79653_init, NULL,
 		    &jd79653_driver, NULL,
 		    POST_KERNEL, CONFIG_APPLICATION_INIT_PRIORITY,
 		    &jd79653_driver_api);
